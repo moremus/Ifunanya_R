@@ -1,0 +1,8 @@
+---
+title: "Test"
+author: "Mark Oremus"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+GitHub Test
