@@ -1,0 +1,100 @@
+---
+title: 'Mediation Test: Multilevel'
+subtitle: 'Complete Case Analysis'
+author: "Mark Oremus"
+date: "`r Sys.Date()`"
+output: 
+  html_document:
+    toc: true
+    number_sections: true
+    toc_float: true
+    theme: cerulean
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Load Needed Libraries
+
+```{r Load Libraries}
+library(readxl)
+library(geepack)
+library(gtsummary)
+library(mediation)
+```
+
+# Import the Excel Spreadsheet with Long-form Data
+
+```{r Import Spreadsheet}
+ds <- read_excel("Z:/Data for IM/NEWEST ANALYSES/Revised_Long_Analysis_CCA.xlsx", 
+                 sheet = "Long_analysis_CCA")
+```
+
+# Convert Age, Sex, Prov to Factor Variables
+
+```{r Convert to factors}
+ds$age<-as.factor(ds$age)
+ds$age<-relevel(ds$age, ref="1")
+
+ds$sex<-as.factor(ds$sex)
+ds$sex<-relevel(ds$sex, ref="M")
+
+ds$prov<-as.factor(ds$prov)
+ds$prov<-relevel(ds$prov, ref="1")
+```
+
+# A Path Using GEEGLM - Base Model
+
+M: fss
+E: mem
+C: age, sex, prov
+
+```{r a path}
+a<-geeglm(fss ~ mem + age + sex + prov + time, id = entity_id, 
+          corstr = "ar1", data = ds)
+summary(a)
+
+a %>% tbl_regression()
+```
+
+## Problem with A Path Results
+
+The $\hat{\beta}$'s are incorrect.
+
+```{r a path check}
+summary(ds$fss)
+```
+FSS scores should range from 0 to 100.
+Some FSS scores are below 0, indicating an error was made in their computation.
+**FSS scores must be re-done.**
+
+# B Path Using GEEGLM - Base Model
+
+O: dep
+M: fss
+E: mem
+C: age, sex, prov
+
+```{r b path}
+b<-geeglm(dep ~ fss + mem + age + sex + prov + time, id = entity_id,
+          corstr = "ar1", data = ds)
+summary(b)
+
+b %>% tbl_regression()
+```
+
+We need the correct values for FSS before we can re-run the b path model.
+
+# Mediation Analysis
+
+```{r Mediation analysis, message=FALSE, warning=FALSE}
+#med<-mediate(a, b, sims = 100, boot = F, robustSE = T, 
+#             treat = "mem", mediator = "fss")
+```
+
+**Error generated:** Error in meatHC(x, type = type, omega = omega): hatvalues() could not be extracted successfully but are needed
+
+This error could be the result of invalid FSS entries or the incompatibility of geeglm and the mediation package.
+
+**Further investigation is necessary: fix FSS and re-run; if the problem persists, then try another model besides geeglm.**

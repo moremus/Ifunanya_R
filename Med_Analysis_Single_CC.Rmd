@@ -1,0 +1,108 @@
+---
+title: 'Mediation Test: Single Level'
+subtitle: 'Complete Case Analysis'
+author: "Mark Oremus"
+date: "`r Sys.Date()`"
+output: 
+  html_document:
+    toc: true
+    number_sections: true
+    toc_float: true
+    theme: cerulean
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Load Needed Libraries
+
+```{r Load Libraries}
+library(gtsummary)
+library(gt)
+library(mediation)
+```
+
+# Import the CCV File with Wide-form Data
+
+```{r Import CCV}
+df <- read.csv("Z:/Data for IM/NEWEST ANALYSES/Revised_Wide_Analysis_CCA.csv")
+```
+
+# Convert Age, Sex, Prov to Factor Variables
+
+```{r Convert to factors}
+df$AGE<-as.factor(df$AGE)
+df$AGE<-relevel(df$AGE, ref="1")
+
+df$SEX<-as.factor(df$SEX)
+df$SEX<-relevel(df$SEX, ref="M")
+
+df$PROV<-as.factor(df$PROV)
+df$PROV<-relevel(df$PROV, ref="1")
+```
+
+# A Path Using LM - Base Model
+
+M: fss1
+E: mem0
+C: age, sex, prov, fss0
+
+```{r a path}
+a<-lm(FSS1 ~ MEM0 + AGE + SEX + PROV + FSS0, data = df)
+summary(a)
+
+a %>% tbl_regression()
+```
+
+## Problem with FSS2
+
+The $\hat{\beta}$'s for FSS2 are incorrect.
+
+```{r a path check}
+summary(df$FSS0)
+summary(df$FSS1)
+summary(df$FSS2)
+```
+FSS2 scores should range from 0 to 100.
+Some FSS2 scores are below 0, indicating an error was made in their computation.
+**FSS2 scores must be re-done, although this would not affect the single-level models because FSS2 is not in these models.**
+
+# B Path Using LM - Base Model
+
+O: DEPP2
+M: FSS1
+E: MEM0
+C: AGE, SEX, PROV, FSS0, DEPP1, DEPP0
+
+```{r b path}
+b<-lm(DEPP2 ~ MEM0 + FSS1 + AGE + SEX + PROV + DEPP1 + DEPP0
+      + FSS0, data = df)
+summary(b)
+
+b %>% tbl_regression()
+```
+
+# Mediation Analysis
+
+```{r Mediation analysis, message=FALSE, warning=FALSE}
+med<-mediate(a, b, sims = 100, boot = F, robustSE = T,
+             treat = "MEM0", mediator = "FSS1")
+summary(med)
+```
+# Create Table with Mediation Results
+
+```{r}
+tbl_med<-tibble::tribble(
+  ~"Path", ~"Estimate", ~"Lower (95% CI)", ~"Upper (95% CI)", ~"p-value",
+  "ab (ACME)", -0.000299, -0.000965, 0.00, 0.28,
+  "c' (ADE)", -0.006255, -0.011664, 0.00, 0.06,
+  "c (TOTAL EFFECT)", -0.006554, -0.012055, 0.00, 0.06,
+  "Prop. Mediated", 0.042415, -0.079498, 0.24, 0.34
+)
+
+mediation_table=gt(data=tbl_med)
+mediation_table
+```
+
+**CONCLUSION:** *We are not seeing any substantive effects on the a path, b path, or in the mediation analysis.*
